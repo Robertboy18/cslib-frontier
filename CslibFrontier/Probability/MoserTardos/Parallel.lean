@@ -67,7 +67,8 @@ expectation. The slack `ε` is needed only for the round bound.
   `ae_exists_parallelRun_eq_nil_of_bound` is the generic form and
   `ae_exists_forall_notMem_parallelRun_symmetric` the symmetric case `e * q * (d + 1) ≤ 1`.
 * `Cslib.Probability.MoserTardos.lintegral_iSup_length_parallelRun_le`: the expected total number
-  of resamplings of the parallel run is at most `∑ i, x i / (1 - x i)`, with no slack.
+  of resamplings of the parallel run is at most `∑ i, x i / (1 - x i)`, with no slack, as a
+  consequence of `lintegral_iSup_count_le` through a measurable majorant.
 * `Cslib.Probability.MoserTardos.lintegral_parallelRounds_le_symmetric`,
   `Cslib.Probability.MoserTardos.lintegral_parallelRounds_le_symmetric_of_pos`: symmetric
   specializations of the round bound under `e * q * (d + 1) ≤ 1 - ε`.
@@ -1057,12 +1058,13 @@ theorem ae_exists_parallelRun_eq_nil_of_bound [DecidableEq V] [Finite ι]
   have hge := le_length_parallelRun_of_forall hne (N + 1)
   omega
 
-/-- **Termination of the parallel algorithm** [MoserTardos2010, Section 1]: under the local-lemma
-hypothesis `Pr[A i] ≤ x i * ∏ j ∈ Γ i, (1 - x j)` of Theorem 1.2, without the slack `1 - ε` that
-Theorem 1.3 needs for its round bound, almost surely every admissible parallel rule reaches an
-empty batch after finitely many rounds. The paper says so in the paragraph introducing
-Algorithm 1.2: the parallel algorithm "can be considered a special case of the sequential
-algorithm, so the statement of Theorem 1.2 applies to the parallel version too". -/
+/-- Under the local-lemma hypothesis `Pr[A i] ≤ x i * ∏ j ∈ Γ i, (1 - x j)` of Theorem 1.2,
+without the slack `1 - ε` that Theorem 1.3 needs for its round bound, almost surely every
+admissible parallel rule reaches an empty batch after finitely many rounds. This is a consequence
+of the valid-log bound `lintegral_iSup_count_le` through `ae_exists_parallelRun_eq_nil_of_bound`.
+Moser and Tardos make the same observation when they introduce Algorithm 1.2
+[MoserTardos2010, Section 1]: the parallel algorithm "can be considered a special case of the
+sequential algorithm, so the statement of Theorem 1.2 applies to the parallel version too". -/
 theorem ae_exists_parallelRun_eq_nil [Fintype V] [DecidableEq V] [Finite ι]
     (μ : ∀ v, Measure (α v)) [∀ v, IsProbabilityMeasure (μ v)]
     (vbl : ι → Finset V) (A : ι → Set (∀ v, α v))
@@ -1108,16 +1110,17 @@ theorem ae_exists_forall_notMem_parallelRun [Fintype V] [DecidableEq V] [Finite 
   (ae_exists_parallelRun_eq_nil μ vbl A hAm hA Γ hΓ hx hP hrule).mono
     fun T ⟨n, hn⟩ => ⟨n, (hrule.eq_nil_iff T _).1 hn⟩
 
-/-- **Expected total number of resamplings of the parallel algorithm** [MoserTardos2010,
-Section 1]. Under the local-lemma hypothesis of Theorem 1.2 (no slack), every admissible parallel
-rule performs at most `∑ i, x i / (1 - x i)` resamplings in expectation over the whole run, the
-total that Theorem 1.2 gives for the sequential algorithm; the paper notes that Theorem 1.2
-applies to the parallel version (see `ae_exists_parallelRun_eq_nil`). Each prefix of the parallel
-run is a valid log (`isLog_parallelRun`), so `lintegral_iSup_count_le` applies to it.
+/-- Under the local-lemma hypothesis of Theorem 1.2 (no slack), every admissible parallel rule
+performs at most `∑ i, x i / (1 - x i)` resamplings in expectation over the whole run. This is a
+consequence of the valid-log bound `lintegral_iSup_count_le`: each prefix of the parallel run is a
+valid log (`isLog_parallelRun`), so its length is at most the measurable majorant
+`∑ i, ⨆ (w valid), w.count i` (`length_le_sum_iSup_count`), whose integral
+`lintegral_sum_iSup_count_le_of_bound` bounds. Moser and Tardos note after introducing
+Algorithm 1.2 that Theorem 1.2 applies to the parallel version [MoserTardos2010, Section 1].
 
 As for `lintegral_parallelRounds_le`, the rule is not assumed measurable and `∫⁻` is the lower
-Lebesgue integral; the proof bounds the count by a measurable function with the same
-expectation. -/
+Lebesgue integral. The theorem bounds that lower integral through the majorant; it does not
+identify it with the integral of the majorant. -/
 theorem lintegral_iSup_length_parallelRun_le [Fintype V] [DecidableEq V] [Fintype ι]
     (μ : ∀ v, Measure (α v)) [∀ v, IsProbabilityMeasure (μ v)]
     (vbl : ι → Finset V) (A : ι → Set (∀ v, α v))
@@ -1130,14 +1133,10 @@ theorem lintegral_iSup_length_parallelRun_le [Fintype V] [DecidableEq V] [Fintyp
     ∫⁻ T, ⨆ n, ((parallelRun psel T n).length : ℝ≥0∞) ∂table μ ≤
       ∑ i, ENNReal.ofReal (x i / (1 - x i)) := by
   classical
-  calc ∫⁻ T, ⨆ n, ((parallelRun psel T n).length : ℝ≥0∞) ∂table μ
-      ≤ ∫⁻ T, ∑ i, ⨆ (w : List ι) (_ : IsLog vbl A T w), (w.count i : ℝ≥0∞) ∂table μ :=
-        lintegral_mono fun T => iSup_le fun n =>
-          length_le_sum_iSup_count vbl A (isLog_parallelRun vbl A hA hrule T n)
-    _ = ∑ i, ∫⁻ T, ⨆ (w : List ι) (_ : IsLog vbl A T w), (w.count i : ℝ≥0∞) ∂table μ :=
-        lintegral_finsetSum _ fun i _ => measurable_iSup_count vbl A hAm i
-    _ ≤ ∑ i, ENNReal.ofReal (x i / (1 - x i)) :=
-        Finset.sum_le_sum fun i _ => lintegral_iSup_count_le μ vbl A hAm hA Γ hΓ hx hP i
+  exact (lintegral_mono fun T => iSup_le fun n =>
+      length_le_sum_iSup_count vbl A (isLog_parallelRun vbl A hA hrule T n)).trans
+    (lintegral_sum_iSup_count_le_of_bound μ vbl A hAm
+      fun i => lintegral_iSup_count_le μ vbl A hAm hA Γ hΓ hx hP i)
 
 end Expectation
 

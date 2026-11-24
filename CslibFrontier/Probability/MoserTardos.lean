@@ -548,6 +548,18 @@ theorem exists_measurable_ge_resamplings_of_bound [DecidableEq ι] [Countable ι
     fun _ hsel T => resamplings_le_iSup_count vbl A hsel i T⟩
 
 omit [Fintype V] [∀ v, IsProbabilityMeasure (μ v)] in
+/-- Generic deduction from per-event expected supremum bounds to a bound on the integral of the
+measurable majorant `∑ i, ⨆ (w valid), w.count i`. Pointwise bounds by this sum, such as
+`resamplings_le_iSup_count` for a sequential run and `length_le_sum_iSup_count` for any valid log,
+turn into expectation bounds through it. -/
+theorem lintegral_sum_iSup_count_le_of_bound [DecidableEq ι] [Fintype ι]
+    (A : ι → Set (∀ v, α v)) (hAm : ∀ i, MeasurableSet (A i)) {c : ι → ℝ≥0∞}
+    (hc : ∀ i, ∫⁻ T, ⨆ (w : List ι) (_ : IsLog vbl A T w), (w.count i : ℝ≥0∞) ∂table μ ≤ c i) :
+    ∫⁻ T, ∑ i, ⨆ (w : List ι) (_ : IsLog vbl A T w), (w.count i : ℝ≥0∞) ∂table μ ≤ ∑ i, c i := by
+  rw [lintegral_finsetSum _ fun i _ => measurable_iSup_count vbl A hAm i]
+  exact sum_le_sum fun i _ => hc i
+
+omit [Fintype V] [∀ v, IsProbabilityMeasure (μ v)] in
 /-- Generic deduction from per-event expected supremum bounds to the expected total number of
 resamplings. -/
 theorem lintegral_sum_resamplings_le_of_bound [DecidableEq ι] [Fintype ι]
@@ -555,13 +567,9 @@ theorem lintegral_sum_resamplings_le_of_bound [DecidableEq ι] [Fintype ι]
     (hc : ∀ i, ∫⁻ T, ⨆ (w : List ι) (_ : IsLog vbl A T w), (w.count i : ℝ≥0∞) ∂table μ ≤ c i)
     {sel : (∀ p : V × ℕ, α p.1) → List ι → Option ι}
     (hsel : ∀ T w j, sel T w = some j → current vbl T w ∈ A j) :
-    ∫⁻ T, ∑ i, resamplings sel i T ∂table μ ≤ ∑ i, c i := by
-  calc ∫⁻ T, ∑ i, resamplings sel i T ∂table μ
-      ≤ ∫⁻ T, ∑ i, ⨆ (w : List ι) (_ : IsLog vbl A T w), (w.count i : ℝ≥0∞) ∂table μ :=
-        lintegral_mono fun T => sum_le_sum fun i _ => resamplings_le_iSup_count vbl A hsel i T
-    _ = ∑ i, ∫⁻ T, ⨆ (w : List ι) (_ : IsLog vbl A T w), (w.count i : ℝ≥0∞) ∂table μ :=
-        lintegral_finsetSum _ fun i _ => measurable_iSup_count vbl A hAm i
-    _ ≤ _ := sum_le_sum fun i _ => hc i
+    ∫⁻ T, ∑ i, resamplings sel i T ∂table μ ≤ ∑ i, c i :=
+  (lintegral_mono fun T => sum_le_sum fun i _ => resamplings_le_iSup_count vbl A hsel i T).trans
+    (lintegral_sum_iSup_count_le_of_bound μ vbl A hAm hc)
 
 omit [Fintype V] [∀ v, IsProbabilityMeasure (μ v)] in
 /-- Generic deduction from finite per-event expected supremum bounds: almost surely the valid
